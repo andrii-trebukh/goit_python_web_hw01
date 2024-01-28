@@ -1,10 +1,8 @@
 from pathlib import Path
 from pickle import UnpicklingError
-from prompt_toolkit import prompt
-from prompt_toolkit.completion import WordCompleter
 from colored import Fore, Style
 from .fields import Address, Date, EmailAddress
-from .fields import Name, Phone, Tag, Text, Title
+from .fields import Name, Phone, Tag, Text, Title, Field, Number
 from .records import Contact, Note
 from .notes_book import NoteBook
 from .contact_book import ContactBook
@@ -43,29 +41,11 @@ def command_handler(command, description):
 
 
 class Assistant:
-    def __init__(self) -> None:
+    def __init__(self, io) -> None:
         self.running = True
         self.contact_book = ContactBook()
         self.notes_book = NoteBook()
-
-    @staticmethod
-    def validated_input(
-        verify_cls,
-        request,
-        completer=None,
-        allow_empty=False
-    ):
-        inp_completer = WordCompleter(completer) if completer else None
-        while True:
-            try:
-                inp = prompt(request, completer=inp_completer).strip()
-                if not inp and allow_empty:
-                    return None
-                if not inp:
-                    raise ValueError("Input can't be empty")
-                return verify_cls(inp)
-            except (ValueError, IndexError) as err:
-                print(f"{Fore.red}{err}{Style.reset}")
+        self.io = io
 
     def save(self):
         dir_path = Path.home().joinpath(".personal_assistant")
@@ -73,24 +53,28 @@ class Assistant:
             dir_path.mkdir()
         save_data_to_file(
             dir_path.joinpath("contact_book.bin"),
-            self.contact_book
+            self.contact_book,
+            self.io
         )
         save_data_to_file(
             dir_path.joinpath("notes_book.bin"),
-            self.notes_book
+            self.notes_book,
+            self.io
         )
 
     def load(self):
         dir_path = Path.home().joinpath(".personal_assistant")
         try:
             self.contact_book = load_data_from_file(
-                dir_path.joinpath("contact_book.bin")
+                dir_path.joinpath("contact_book.bin"),
+                self.io
             )
         except (UnpicklingError, FileNotFoundError, ModuleNotFoundError):
             pass
         try:
             self.notes_book = load_data_from_file(
-                dir_path.joinpath("notes_book.bin")
+                dir_path.joinpath("notes_book.bin"),
+                self.io
             )
         except (UnpicklingError, FileNotFoundError, ModuleNotFoundError):
             pass
@@ -126,30 +110,30 @@ class Assistant:
 
     @command_handler("add", "Add new user to contact book")
     def add_command(self):
-        name = self.validated_input(Name, "User name: ")
+        name = self.io.input(Name, "User name: ")
         contact = Contact(name.value)
         self.contact_book.add_contact(contact)
-        phone = self.validated_input(
+        phone = self.io.input(
             Phone,
             "User phone in 10 digits format, empty to skip: ",
             allow_empty=True)
         if phone:
             contact.add_phone(phone.value)
-        address = self.validated_input(
+        address = self.io.input(
             Address,
             "User address, empty to skip: ",
             allow_empty=True
         )
         if address:
             contact.address = address.value
-        email = self.validated_input(
+        email = self.io.input(
             EmailAddress,
             "User e-mail, empty to skip: ",
             allow_empty=True
         )
         if email:
             contact.email = email.value
-        birthday = self.validated_input(
+        birthday = self.io.input(
             Date,
             "User birthday in YYYY-MM-DD format, empty to skip: ",
             allow_empty=True
@@ -160,7 +144,7 @@ class Assistant:
 
     @command_handler("remove", "Remove user from contact book")
     def remove_command(self):
-        name = self.validated_input(
+        name = self.io.input(
             Name,
             "User name: ",
             self.contact_book.names_tuple
@@ -170,13 +154,13 @@ class Assistant:
 
     @command_handler("phone add", "Add phone number to existing user")
     def add_phone_command(self):
-        name = self.validated_input(
+        name = self.io.input(
             Name,
             "User name: ",
             self.contact_book.names_tuple
         )
         contact = self.contact_book.get_contact(name.value)
-        phone = self.validated_input(
+        phone = self.io.input(
             Phone,
             "User phone in 10 digits format: "
         )
@@ -185,13 +169,13 @@ class Assistant:
 
     @command_handler("phone remove", "Femove phone number from existing user")
     def rm_phone_command(self):
-        name = self.validated_input(
+        name = self.io.input(
             Name,
             "User name: ",
             self.contact_book.names_tuple
         )
         contact = self.contact_book.get_contact(name.value)
-        phone = self.validated_input(
+        phone = self.io.input(
             Phone,
             "User phone, empty to skip: ",
             contact.phones_tuple,
@@ -204,13 +188,13 @@ class Assistant:
 
     @command_handler("phone edit", "Edit existing phone number")
     def edit_phone_command(self):
-        name = self.validated_input(
+        name = self.io.input(
             Name,
             "User name: ",
             self.contact_book.names_tuple
         )
         contact = self.contact_book.get_contact(name.value)
-        phone = self.validated_input(
+        phone = self.io.input(
             Phone,
             "User phone, empty to skip: ",
             contact.phones_tuple,
@@ -218,7 +202,7 @@ class Assistant:
         )
         if phone is None:
             return "Nothing has been changed"
-        new_phone = self.validated_input(
+        new_phone = self.io.input(
             Phone,
             "New phone in 10 digits format: "
         )
@@ -227,13 +211,13 @@ class Assistant:
 
     @command_handler("edit name", "Edit existing user name")
     def edit_name_command(self):
-        name = self.validated_input(
+        name = self.io.input(
             Name,
             "User name: ",
             self.contact_book.names_tuple
         )
         contact = self.contact_book.get_contact(name.value)
-        new_name = self.validated_input(
+        new_name = self.io.input(
             Name,
             "New user name, empty to skip: ",
             allow_empty=True
@@ -245,13 +229,13 @@ class Assistant:
 
     @command_handler("address", "Add or overwrite existing user address")
     def edit_address_command(self):
-        name = self.validated_input(
+        name = self.io.input(
             Name,
             "User name: ",
             self.contact_book.names_tuple
         )
         contact = self.contact_book.get_contact(name.value)
-        address = self.validated_input(
+        address = self.io.input(
             Address,
             "User address, empty to skip: ",
             allow_empty=True
@@ -263,13 +247,13 @@ class Assistant:
 
     @command_handler("e-mail", "Add or overwrite existing user e-mail")
     def edit_email_command(self):
-        name = self.validated_input(
+        name = self.io.input(
             Name,
             "User name: ",
             self.contact_book.names_tuple
         )
         contact = self.contact_book.get_contact(name.value)
-        email = self.validated_input(
+        email = self.io.input(
             EmailAddress,
             "User e-mail, empty to skip: ",
             allow_empty=True
@@ -281,13 +265,13 @@ class Assistant:
 
     @command_handler("birthday", "Add or overwrite existing user birthday")
     def edit_birthday_command(self):
-        name = self.validated_input(
+        name = self.io.input(
             Name,
             "User name: ",
             self.contact_book.names_tuple
         )
         contact = self.contact_book.get_contact(name.value)
-        birthday = self.validated_input(
+        birthday = self.io.input(
             Date,
             "User birthday in YYYY-MM-DD format, empty to skip: ",
             allow_empty=True
@@ -299,8 +283,8 @@ class Assistant:
 
     @command_handler("search", "Search by pattern in any record")
     def search_command(self):
-        pattern = prompt("Search: ").strip()
-        result = self.contact_book.find(pattern)
+        pattern = self.io.input(Field, "Search: ")
+        result = self.contact_book.find(pattern.value.strip())
         if not result:
             return "Nothing found"
         return "\n\n".join(str(contact) for contact in result)
@@ -321,9 +305,9 @@ class Assistant:
 
     @command_handler("note add", "Add note to notes book")
     def add_note_command(self):
-        title = self.validated_input(Title, "Note title: ")
-        text = self.validated_input(Text, "Note text: ")
-        tag = self.validated_input(
+        title = self.io.input(Title, "Note title: ")
+        text = self.io.input(Text, "Note text: ")
+        tag = self.io.input(
             Tag,
             "Note tag: ",
             self.notes_book.notes_tags_set
@@ -334,13 +318,13 @@ class Assistant:
 
     @command_handler("note add tag", "Add tag to note")
     def add_tag_command(self):
-        title = self.validated_input(
+        title = self.io.input(
             Title,
             "Note title: ",
             self.notes_book.titles_tuple
         )
         note = self.notes_book.get_note(title.value)
-        tag = self.validated_input(
+        tag = self.io.input(
             Tag,
             "Note tag: ",
             self.notes_book.notes_tags_set
@@ -350,13 +334,13 @@ class Assistant:
 
     @command_handler("note remove tag", "Remove tag from note")
     def rm_tag_command(self):
-        title = self.validated_input(
+        title = self.io.input(
             Title,
             "Note title: ",
             self.notes_book.titles_tuple
         )
         note = self.notes_book.get_note(title.value)
-        tag = self.validated_input(
+        tag = self.io.input(
             Tag,
             "Note tag: ",
             note.tags_set
@@ -366,14 +350,14 @@ class Assistant:
 
     @command_handler("note edit tag", "Edit note tag")
     def edit_tag_command(self):
-        title = self.validated_input(
+        title = self.io.input(
             Title,
             "Note title: ",
             self.notes_book.titles_tuple
         )
         note = self.notes_book.get_note(title.value)
-        tag = self.validated_input(Tag, "Note tag: ", note.tags_set)
-        new_tag = self.validated_input(
+        tag = self.io.input(Tag, "Note tag: ", note.tags_set)
+        new_tag = self.io.input(
             Tag,
             "New note tag: ",
             self.notes_book.notes_tags_set
@@ -383,7 +367,7 @@ class Assistant:
 
     @command_handler("note remove", "Remove note from notes book")
     def rm_note_command(self):
-        title = self.validated_input(
+        title = self.io.input(
             Title,
             "Note title: ",
             self.notes_book.titles_tuple
@@ -393,15 +377,15 @@ class Assistant:
 
     @command_handler("note search", "Notes search by pattern")
     def search_note_command(self):
-        pattern = prompt("Search: ").strip()
-        result = self.notes_book.find(pattern)
+        pattern = self.io.input(Field, "Search: ")
+        result = self.notes_book.find(pattern.value.strip())
         if not result:
             return "Nothing found"
         return "\n\n".join(str(note) for note in result)
 
     @command_handler("note tag search", "Notes search by tag")
     def search_note_tag_command(self):
-        tag = self.validated_input(
+        tag = self.io.input(
             Tag,
             "Note tag: ",
             self.notes_book.notes_tags_set
@@ -416,7 +400,7 @@ class Assistant:
         path = Path()
         dir_list = filter(lambda dir: dir.is_dir(), path.iterdir())
         dir_list = tuple(dirs.stem for dirs in dir_list)
-        dir_path = self.validated_input(
+        dir_path = self.io.input(
             Path,
             "Path to folder, empty to skip: ",
             dir_list,
@@ -424,7 +408,7 @@ class Assistant:
         )
         if dir_path is None:
             return "Nothing has been changed"
-        init_folder(dir_path)
+        init_folder(dir_path, self.io)
         return f"Folder {dir_path.absolute()} has been sorted"
 
     @command_handler(
@@ -432,21 +416,20 @@ class Assistant:
             "Birthday persons list to specific date"
     )
     def birthday_command(self):
-        days = prompt("Number of days from today: ").strip()
-        if not days.isdigit():
-            raise ValueError("Incorrect input. Should be number.")
-        result = self.contact_book.days_to_birthday(int(days))
+        days = self.io.input(
+            Number,
+            "Number of days from today: ")
+        result = self.contact_book.days_to_birthday(int(days.value))
         if not result:
             return "Nothing found"
         return "\n\n".join(str(contact) for contact in result)
 
     def main_loop(self):
-        print(f"\n{self.help()}")
+        self.io.print(f"\n{self.help()}")
         while self.running:
-            command_completer = WordCompleter(commands)
-            command = prompt('>>> ', completer=command_completer)
-            command = command.lower().strip()
+            command = self.io.input(Field, ">>> ", commands.keys())
+            command = command.value.lower().strip()
             if command not in commands:
-                print("No such command")
+                self.io.print("No such command")
                 continue
-            print(commands[command][0](self))
+            self.io.print(commands[command][0](self))

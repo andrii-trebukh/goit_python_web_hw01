@@ -7,3 +7,4 @@ from .phone import Phone
 from .tag import Tag
 from .text import Text
 from .title import Title
+from .number import Number

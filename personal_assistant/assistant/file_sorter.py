@@ -12,14 +12,17 @@ folders = ['images', 'documents', 'audio', 'video', 'other', 'archives'] # па�
 list_of_bad_folders = list()
 folders_absolute = []
 
-def init_folder(val):
+
+def init_folder(val, io):
     global folder 
     folder = val
-    main()
-def main():
+    main(io)
+
+
+def main(io):
     global folder, folders_absolute
     if folder.is_dir():
-        print(f"\nSort files in a folder {folder}\n")
+        io.print(f"\nSort files in a folder {folder}\n")
     else:
         raise FileNotFoundError(f"Folder {folder.name} not found")
 
@@ -31,20 +34,20 @@ def main():
     for i in folders_absolute:                       # Перевірка на наявність папок категорій та створення якщо відсутні
         if not os.path.exists(i):
             os.mkdir(i)
-            print(f'Created folder {i.name}')
+            io.print(f'Created folder {i.name}')
                 
-    find_files(folder)                      # пошук файлів у заданій папці
+    find_files(folder, io)                      # пошук файлів у заданій папці
     list_of_bad_folders.append(folders_absolute[5])    
     list_of_bad_folders.reverse()                   
     for i in list_of_bad_folders:                                       # Видалення пустих папок
         try:
-            print(f'delete the empty folder {i.name}')
+            io.print(f'delete the empty folder {i.name}')
             os.rmdir(i)
         except:
-            find_files(i)
+            find_files(i, io)
 
 
-def find_files(path):
+def find_files(path, io):
     a = 0
     for files in path.iterdir():
         
@@ -72,7 +75,7 @@ def find_files(path):
                     shutil.unpack_archive(files.absolute(), folders_absolute[5]) 
                     find_files(folders_absolute[5])
                 except:
-                    print(f'impossible to unpack the archive, {files.name}, deletion')
+                    io.print(f'impossible to unpack the archive, {files.name}, deletion')
                 finally:
                     os.remove(files.absolute())   
             else:
@@ -85,7 +88,7 @@ def find_files(path):
                 continue
             else:
                 list_of_bad_folders.append(files)
-                find_files(files)
+                find_files(files, io)
 
 a = 0
 def normalize(not_normal_name, path: Path): # функція перейменування 

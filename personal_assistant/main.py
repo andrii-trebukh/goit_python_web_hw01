@@ -1,7 +1,9 @@
 if __package__ is None or __package__ == '':
     from assistant.assistant import Assistant
+    from assistant.io import IoCli
 else:
     from .assistant import Assistant
+    from .assistant import IoCli
 
 NICE_LOGO = r"""
 ______      _                  _   _____ _       _
@@ -16,12 +18,14 @@ ______      _                  _   _____ _       _
 
 
 def main():
-    # nice and useless intro
-    print(NICE_LOGO)
-    print("Present\n")
-    print("Personal assistant")
+    io = IoCli()
 
-    assistant = Assistant()
+    # nice and useless intro
+    io.print(NICE_LOGO)
+    io.print("Present\n")
+    io.print("Personal assistant")
+
+    assistant = Assistant(io)
     assistant.load()
     assistant.main_loop()
     assistant.save()
