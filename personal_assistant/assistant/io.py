@@ -5,7 +5,7 @@ from prompt_toolkit import prompt
 from prompt_toolkit.completion import WordCompleter
 
 
-class Singletone:
+class Singleton:
 
     __instance = None
 
@@ -15,7 +15,7 @@ class Singletone:
         return cls.__instance
 
 
-class Io(ABC, Singletone):
+class Io(ABC, Singleton):
 
     @abstractmethod
     def print(self, string: str):
